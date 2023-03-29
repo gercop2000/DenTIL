@@ -1,17 +1,36 @@
-function [ features,featureNames ] = getDenTILFeatures( image,lympCentroids,nonLympCentroids,lympAreas  )
-%GETDENTILFEATURES Summary of this function goes here
-%   Detailed explanation goes here
+function [ features,featureNames ] = getDenTILFeatures(imageOrTileArea,lympCentroids,nonLympCentroids,lympAreas)
+%GETDENTILFEATURES Extract features associated to density of
+%   tumor-infiltrating lymphotyes in a tile.
+% Inputs:
+%	imageOrTileArea		:	Tile to be analyzed. If the tile is not 
+%							available or a faster result is desired, 
+%							the tile area can be used instead.
+% 	lympCentroids		:	Centroids of the lymphocytes 	
+% 	nonLympCentroids	:	Centroids of the non lymphocytes
+% 	lympAreas			: 	Areas of the lymphocytes
+
+if numel(image)==1
+	tileArea=imageOrTileArea;
+else
+	tileArea=getTissueArea(imageOrTileArea);
+end
+
+[features,featureNames ] = computeDenTILFeatures(tileArea,lympCentroids,nonLympCentroids,lympAreas)
+
+end
+
+function [features,featureNames ] = computeDenTILFeatures(tileArea,lympCentroids,nonLympCentroids,lympAreas)
 
 numLymp=length(lympCentroids);
 totNuclei=numLymp+length(nonLympCentroids);
 
 %% Regular-density-based measures
-A=getTissueArea(image);
+%A=tileSize^2;
 %totLympArea=sum(nucleiFeatures(prediction==1,1));
 totLympArea=sum(lympAreas);
 
-densLymp=numLymp/A;
-densAreaLymp=totLympArea/A;
+densLymp=numLymp/tileArea;
+densAreaLymp=totLympArea/tileArea;
 ratioLymp=numLymp/totNuclei;
 
 %% Grouping-based measures
@@ -48,8 +67,8 @@ else
     intersArea=0;
 end
 
-%% Density-Matrix-based meatures
-M=getDensityMatrixCore(length(image),5,lympCentroids);
+%% Density-Matrix-based measures assuming the tile is a square
+M=getDensityMatrixCore(sqrt(tileArea),5,lympCentroids);
 M(M==0)=[];
 
 maxM=max(M);
@@ -76,38 +95,5 @@ featureNames={'#Lymp/TissueArea','LympTotalArea/TissueArea',...
     'MedianDensityMatrixVal','ModeDensityMatrixVal',...
     };
 
-%     features=[numLymp,densLymp,densAreaLymp,ratioLymp,groupingFactor];
-%
-%     featNames={'#Lymp','#Lymp/TissueArea','LympTotalArea/TissueArea',...
-%         '#Lymp/#TotalNuclei','GroupingFactor',...
-%         };
 
-end
-
-function M=getDensityMatrixCore(imgDim,partitions,centroids)
-
-tileDim=imgDim/partitions;
-M=[];
-for i=1:tileDim:imgDim
-    for j=1:tileDim:imgDim
-        coords=centroids(centroids(:,1)>=i & centroids(:,1)<i+tileDim & ...
-            centroids(:,2)>=j & centroids(:,2)<j+tileDim,:);
-        M=[M;length(coords)];
-    end
-end
-%N=reshape(M,[partitions,partitions]);
-%drawDensityMatrix(N,30);
-end
-
-function A=getIntersectedArea(pointsShape1,pointsShape2)
-
-polyarray1 = polyshape(pointsShape1);
-polyarray2 = polyshape(pointsShape2);
-polyout = intersect([polyarray1 polyarray2]);
-A=polyarea(polyout.Vertices(:,1),polyout.Vertices(:,2));
-
-%     [xp1,yp1]=my_poly2cw(pointsShape1(:,1),pointsShape1(:,2));
-%     [xp2,yp2]=my_poly2cw(pointsShape2(:,1),pointsShape2(:,2));
-%     [xi, yi] = my_polybool('intersection',xp1,yp1,xp2,yp2);
-%     A = polyarea(xi,yi);
 end
